@@ -1,0 +1,46 @@
+<aside class="approval-drawer workspace-drawer" id="file-approval-drawer" aria-label="任务工作台" hidden>
+  <div class="approval-drawer-head">
+    <div><strong id="workspace-drawer-title">任务工具</strong><small id="workspace-drawer-subtitle">所有操作都在当前任务内完成</small></div>
+    <button type="button" class="approval-drawer-close" data-close-approval-drawer aria-label="关闭任务工具">×</button>
+  </div>
+
+  <section class="workspace-panel" data-workspace-content="files">
+    <p class="approval-drawer-hint">文件只有在你点击“批准”后才会写入电脑。可以逐个处理，也可以一次处理全部。</p>
+    {% if pending_operations %}
+    <form method="post" action="{{ url_for('web.approve_all_file_operations', project_id=project.id) }}" class="approval-drawer-all">
+      <input type="hidden" name="return_to" value="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}#file-approval-drawer">
+      <button class="btn btn-primary" type="submit">批准全部 {{ pending_operations }} 项</button>
+    </form>
+    <div class="approval-drawer-list">
+      {% for op in pending_file_operations %}
+      <article class="drawer-file-card">
+        <header><span class="drawer-file-action">{{ {'create_directory':'新建文件夹','create_file':'新建','write_file':'修改'}.get(op.action, '文件') }}</span><code>{{ op.target_path.split('\\')[-1].split('/')[-1] }}</code></header>
+        <small>{{ op.target_path }}</small>
+        <details><summary>查看内容和差异</summary><div class="drawer-diff"><div><b>修改前</b><pre>{{ operation_previews[op.id].before }}</pre></div><div><b>AI 建议</b><pre>{{ operation_previews[op.id].after }}</pre></div></div></details>
+        <div class="drawer-file-actions"><form method="post" action="{{ url_for('web.decide_file_operation', operation_id=op.id, decision='approve') }}"><input type="hidden" name="return_to" value="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}#file-approval-drawer"><button class="btn btn-primary btn-sm" type="submit">批准</button></form><form method="post" action="{{ url_for('web.decide_file_operation', operation_id=op.id, decision='skip') }}"><input type="hidden" name="return_to" value="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}#file-approval-drawer"><button class="btn btn-outline-secondary btn-sm" type="submit">跳过</button></form></div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}<div class="workspace-empty"><strong>没有待审批文件</strong><p>AI 生成文件提案后，会自动显示在这里。</p></div>{% endif %}
+  </section>
+
+  <section class="workspace-panel" data-workspace-content="tests" hidden>
+    <p class="approval-drawer-hint">仅在已接入的 Python 项目中运行测试。测试命令会在聊天记录中留下结果。</p>
+    {% if project.workspace_path or project.attached_file_path %}
+    <form method="post" action="{{ url_for('web.run_tests', sprint_id=sprint.id) }}" data-model-run class="workspace-primary-action"><input type="hidden" name="after" value="collaboration"><button class="btn btn-primary" type="submit">运行 Python 测试</button></form>
+    {% else %}<div class="workspace-empty"><strong>还没有接入项目文件</strong><p>请先在“项目空间”接入文件夹或文件。</p></div>{% endif %}
+    {% for test_run in test_runs[:3] %}<article class="workspace-result"><header><strong>{{ '测试通过' if test_run.status == 'passed' else '测试未通过' }}</strong><small>{{ test_run.created_at.strftime('%m-%d %H:%M') }}</small></header><code>{{ test_run.command }}</code><details><summary>查看测试输出</summary><pre>{{ test_run.output }}</pre></details></article>{% else %}<p class="workspace-muted">尚未运行过测试。</p>{% endfor %}
+  </section>
+
+  <section class="workspace-panel" data-workspace-content="tasks" hidden>
+    <p class="approval-drawer-hint">项目经理拆解后的任务会集中在这里。必要时可重新分配给其他开发 Agent。</p>
+    <div class="workspace-task-list">{% for task in sprint.tasks %}<article class="workspace-task"><div><strong>{{ task.title }}</strong><small>{{ task.assignee or '等待分配' }} · {{ task.estimate or '未估时' }}</small>{% if task.return_reason %}<p>{{ task.return_reason }}</p>{% endif %}</div><span class="task-status {{ task.status }}">{{ {'assigned':'已分配','in_progress':'处理中','testing':'测试中','rework':'待修复','done':'已完成','todo':'待开始'}.get(task.status, task.status) }}</span></article>{% else %}<div class="workspace-empty"><strong>AI 还没有拆出任务</strong><p>开始协同后，任务会自动显示在这里。</p></div>{% endfor %}</div>
+    {% if sprint.mode == 'manual' and sprint.status not in ['draft','done','blocked'] %}<form method="post" action="{{ url_for('web.advance_sprint', sprint_id=sprint.id) }}" data-model-run class="workspace-primary-action"><input type="hidden" name="after" value="collaboration"><button class="btn btn-primary full-button">继续下一步</button></form>{% endif %}
+  </section>
+
+  <section class="workspace-panel" data-workspace-content="reports" hidden>
+    <p class="approval-drawer-hint">复盘、测试报告和任务表会保存到项目目录的 agilesprint_reports 文件夹。</p>
+    <div class="workspace-report-actions"><form method="post" action="{{ url_for('web.export_artifact', sprint_id=sprint.id, artifact_type='markdown') }}"><input type="hidden" name="after" value="collaboration"><button class="btn btn-outline-secondary">生成复盘 Markdown</button></form><form method="post" action="{{ url_for('web.export_artifact', sprint_id=sprint.id, artifact_type='word') }}"><input type="hidden" name="after" value="collaboration"><button class="btn btn-outline-secondary">生成 Word 测试报告</button></form><form method="post" action="{{ url_for('web.export_artifact', sprint_id=sprint.id, artifact_type='excel') }}"><input type="hidden" name="after" value="collaboration"><button class="btn btn-outline-secondary">生成 Excel 任务表</button></form></div>
+    <a class="btn btn-primary full-button" href="{{ url_for('web.project_artifacts', project_id=project.id) }}">打开产物中心</a>
+  </section>
+</aside>

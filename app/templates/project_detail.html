@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ project.name }}{% endblock %}
+{% block content %}
+{% if sprint %}
+<section class="project-banner simple-banner">
+  <div>
+    <a class="back-link" href="{{ url_for('web.dashboard') }}">返回项目列表</a>
+    <p class="eyebrow">{{ sprint.name }}</p>
+    <h2>{{ sprint.goal }}</h2>
+  </div>
+  <div class="banner-actions">
+    <span class="state-badge {{ sprint.status }}">{{ {'draft':'等待开始','planning':'正在规划','developing':'正在处理','testing':'正在测试','rework':'正在修复','reviewing':'正在总结','done':'已完成','blocked':'需要处理'}.get(sprint.status, sprint.status) }}</span>
+    <a class="btn btn-outline-primary project-chat-entry" href="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}">进入协同对话</a>
+  </div>
+</section>
+
+{% if sprint.last_error %}
+<section class="retry-card"><div><p class="eyebrow">本步骤没有完成</p><h3>原有文件没有被修改</h3><p>你可以安全重试，也可以先检查模型连接。</p></div><div class="retry-actions"><a class="btn btn-primary" href="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}">去重试</a><a class="btn btn-outline-primary" href="{{ url_for('web.settings') }}">检查模型连接</a></div></section>
+{% endif %}
+
+<section class="process-card compact-process">
+  <div class="process-title"><div><h2>项目进度</h2></div><span class="state-badge {{ sprint.status }}">{{ {'draft':'等待开始','planning':'规划','developing':'处理','testing':'测试','rework':'修复','reviewing':'总结','done':'完成','blocked':'需处理'}.get(sprint.status, sprint.status) }}</span></div>
+  {% set states=[('draft','任务'),('planning','规划'),('developing','处理'),('testing','测试'),('rework','修复'),('reviewing','总结'),('done','完成')] %}
+  {% set current=['draft','planning','developing','testing','rework','reviewing','done'].index(sprint.status) if sprint.status in ['draft','planning','developing','testing','rework','reviewing','done'] else 0 %}
+  <div class="stepper">{% for key,label in states %}<div class="step {% if loop.index0 <= current %}done{% endif %}"><span>{{ loop.index }}</span><small>{{ label }}</small></div>{% endfor %}</div>
+</section>
+
+<section class="next-action-card">
+  <div>
+    <p class="eyebrow">下一步</p>
+    {% if sprint.status == 'draft' %}<h2>开始处理</h2>
+    {% elif pending_operations > 0 %}<h2>审批 {{ pending_operations }} 个文件</h2>
+    {% elif sprint.status in ['testing','rework'] %}<h2>运行测试</h2>
+    {% elif sprint.status == 'done' %}<h2>本轮已完成</h2>
+    {% else %}<h2>AI 正在处理</h2>{% endif %}
+  </div>
+  <div>
+    {% if sprint.status == 'draft' %}<div class="start-actions"><form method="post" action="{{ url_for('web.start_sprint', sprint_id=sprint.id) }}" data-model-run><input type="hidden" name="mode" value="auto"><button class="btn btn-primary">开始自动协同</button></form><a class="btn btn-outline-primary" href="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}">进入协同对话</a></div>
+    {% elif sprint.status not in ['done','blocked'] and pending_operations == 0 %}<a class="btn btn-primary" href="{{ url_for('web.collaboration_center', project_id=project.id, sprint_id=sprint.id) }}">打开对话</a>
+    {% elif pending_operations > 0 %}<a class="btn btn-primary" href="#file-operations">去审批文件</a>
+    {% else %}<a class="btn btn-primary" href="{{ url_for('web.new_collaboration') }}">发起新任务</a>{% endif %}
+  </div>
+</section>
+
+{% if pending_operations %}
+<section class="approval-workspace" id="file-operations">
+  <div class="section-heading compact"><div><p class="eyebrow">文件审批</p><h2>AI 建议修改这些文件</h2><p class="empty-copy">每一项都需要你的批准，文件才会真正写入本地。</p></div><form method="post" action="{{ url_for('web.approve_all_file_operations', project_id=project.id) }}"><button class="btn btn-primary" data-confirm="确认执行全部待审批文件操作？">一键批准全部</button></form></div>
+  <form id="bulk-approve-form" method="post" action="{{ url_for('web.approve_selected_file_operations', project_id=project.id) }}" class="bulk-bar"><label><input type="checkbox" data-select-all> 全选</label><button class="btn btn-outline-primary btn-sm" data-confirm="确认执行已勾选的文件操作？">批准已选文件</button></form>
+  <div class="approval-main-list">
+    {% for op in pending_file_operations %}
+    <article class="approval-item main-approval-item">
+      <label class="operation-select"><input type="checkbox" name="operation_ids" value="{{ op.id }}" form="bulk-approve-form" data-operation-check> 选择</label>
+      <div><strong>{{ {'create_directory':'新建文件夹','create_file':'新建文件','write_file':'修改文件'}.get(op.action, op.action) }}</strong><code>{{ op.target_path }}</code><small>将影响：{{ op.target_path.split('\\')[-1].split('/')[-1] }}</small></div>
+      <details><summary>查看内容和差异</summary><div class="code-diff"><div><b>当前内容</b><pre><code>{{ operation_previews[op.id].before }}</code></pre></div><div><b>AI 建议内容</b><pre><code>{{ operation_previews[op.id].after }}</code></pre></div></div></details>
+      <div class="approval-actions"><form method="post" action="{{ url_for('web.decide_file_operation', operation_id=op.id, decision='approve') }}"><button class="btn btn-primary btn-sm" data-confirm="确认批准这个文件修改？">批准</button></form><form method="post" action="{{ url_for('web.decide_file_operation', operation_id=op.id, decision='skip') }}"><button class="btn btn-outline-secondary btn-sm">跳过</button></form></div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="project-tools">
+  <details class="tool-disclosure">
+    <summary><span>任务管理</span><small>{{ sprint.tasks|length }} 项任务</small></summary>
+  <div class="task-list">{% for task in sprint.tasks %}<article class="task-item"><div><strong>{{ task.title }}</strong><p>{{ task.assignee }} · {{ task.estimate }}</p>{% if task.return_reason %}<small class="return-reason">需要修复：{{ task.return_reason }}</small>{% endif %}<form class="reassign-form" method="post" action="{{ url_for('web.reassign_task', task_id=task.id) }}"><select name="assignee" aria-label="重新分配给开发 Agent">{% for member in active_members %}<option value="{{ member.name }}" {% if member.name == task.assignee %}selected{% endif %}>{{ member.name }}</option>{% endfor %}</select><button class="btn btn-outline-primary btn-sm">重新分配</button></form></div><span class="task-status {{ task.status }}">{{ {'assigned':'已分配','in_progress':'处理中','testing':'测试中','rework':'待修复','done':'已完成','todo':'待开始'}.get(task.status, task.status) }}</span></article>{% else %}<p class="empty-copy">协同开始后会自动生成任务。</p>{% endfor %}</div>
+  </details>
+
+  <details class="tool-disclosure" id="testing" open>
+    <summary><span>运行测试</span><small>{% if test_runs %}最近一次：{{ '通过' if test_runs[0].status == 'passed' else '未通过' }}{% elif project.workspace_path or project.attached_file_path %}点击下方按钮运行{% else %}请先接入项目文件{% endif %}</small></summary>
+    <div class="tool-body">{% if project.workspace_path or project.attached_file_path %}<form method="post" action="{{ url_for('web.run_tests', sprint_id=sprint.id) }}"><button class="btn btn-outline-primary" data-confirm="将在该项目目录中运行 Python 测试，确认继续？">运行 Python 测试</button></form>{% else %}<p class="empty-copy">请先接入项目文件夹或单个 Python 文件。</p>{% endif %}{% for test_run in test_runs[:1] %}<details class="test-detail"><summary>{{ '测试通过' if test_run.status == 'passed' else '测试未通过' }}：查看技术详情</summary><pre><code>{{ test_run.output }}</code></pre></details>{% endfor %}</div>
+  </details>
+
+  <details class="tool-disclosure">
+    <summary><span>报告与导出</span><small>可选</small></summary>
+    <div class="tool-body"><a class="btn btn-outline-primary" href="{{ url_for('web.project_artifacts', project_id=project.id) }}">打开产物中心</a>{% if project.workspace_path or project.attached_file_path %}<div class="export-actions"><form method="post" action="{{ url_for('web.export_artifact', sprint_id=sprint.id, artifact_type='markdown') }}"><button class="btn btn-outline-primary btn-sm">生成复盘 Markdown</button></form><form method="post" action="{{ url_for('web.export_artifact', sprint_id=sprint.id, artifact_type='word') }}"><button class="btn btn-outline-primary btn-sm">生成 Word 测试报告</button></form><form method="post" action="{{ url_for('web.export_artifact', sprint_id=sprint.id, artifact_type='excel') }}"><button class="btn btn-outline-primary btn-sm">生成 Excel 任务表</button></form></div>{% endif %}</div>
+  </details>
+
+  <details class="tool-disclosure muted-tool">
+    <summary><span>更多项目操作</span><small>删除项目</small></summary>
+    <div class="tool-body"><p>删除只会移除系统中的项目记录，不会删除你电脑里的代码和文件夹。</p><form method="post" action="{{ url_for('web.delete_project', project_id=project.id) }}"><button class="btn btn-outline-danger btn-sm" data-confirm="确认删除项目“{{ project.name }}”及全部协作记录？电脑中的文件不会被删除。">删除项目</button></form></div>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

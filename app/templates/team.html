@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block page_title %}AI 团队{% endblock %}
+{% block content %}
+<section class="section-heading team-library-heading">
+  <div><p class="eyebrow">可复用的 AI 团队</p><h2>新建团队，任务开始前选择它</h2><p class="lead">每支团队都包含项目经理、测试和回顾 Agent；你只需要按需要加入不同专长的开发 Agent。</p></div>
+</section>
+
+<section class="surface-card team-create-card">
+  <div><strong>新增团队</strong><small>例如：Python 开发团队、文档办公团队</small></div>
+  <form method="post" action="{{ url_for('web.create_agent_team') }}">
+    <input class="form-control" name="name" placeholder="团队名称" required>
+    <input class="form-control" name="description" placeholder="团队擅长什么（可选）">
+    <button class="btn btn-primary">创建团队</button>
+  </form>
+</section>
+
+{% for team in teams %}
+<section class="team-project reusable-team">
+  <header>
+    <span class="project-initial">{{ team.name[:1] }}</span>
+    <div><h3>{{ team.name }}</h3><p>{{ team.description or '还没有填写团队说明。' }}</p></div>
+    <form method="post" action="{{ url_for('web.delete_agent_team', team_id=team.id) }}"><button class="btn btn-outline-danger btn-sm">删除团队</button></form>
+  </header>
+  <div class="member-grid">
+    <article class="member-card manager-card"><span class="member-avatar">管</span><h4>项目经理 Agent</h4><p>理解需求、分解任务和协调分工。</p></article>
+    {% for member in team.members %}
+    <article class="member-card"><span class="member-avatar">{{ member.name[:1] }}</span><h4>{{ member.name }} · 开发 Agent</h4><p>{{ member.skills }}</p><div class="load-row"><span>当前负载</span><span>{{ member.workload }} 项</span></div><div class="load-bar"><i style="width: {{ [member.workload * 33, 100]|min }}%"></i></div></article>
+    {% endfor %}
+    <article class="member-card tester-card"><span class="member-avatar">测</span><h4>测试 Agent</h4><p>运行测试、定位问题，并将任务退回开发。</p></article>
+    <article class="member-card reviewer-card"><span class="member-avatar">复</span><h4>回顾 Agent</h4><p>总结过程、风险和下一次改进点。</p></article>
+  </div>
+  <form class="surface-card member-form" method="post" action="{{ url_for('web.add_agent_team_member', team_id=team.id) }}">
+    <strong>加入开发 Agent</strong><input class="form-control" name="name" placeholder="Agent 名称，例如：小林" required><input class="form-control" name="skills" placeholder="技能，例如：Python、Flask、pytest" required><input class="form-control" name="workload" type="number" min="0" value="0" aria-label="初始负载"><button class="btn btn-outline-primary btn-sm">加入团队</button>
+  </form>
+</section>
+{% else %}
+<section class="empty-state"><h3>还没有团队</h3><p>先创建一支团队，再让它完成后续任务。</p></section>
+{% endfor %}
+{% endblock %}

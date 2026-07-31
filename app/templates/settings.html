@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block page_title %}模型与安全设置{% endblock %}
+{% block content %}
+<section class="settings-grid">
+  <div class="surface-card">
+    <p class="eyebrow">大模型连接</p><h2>选择真实协作模型</h2>
+    <p>Key 仅加密存储在本机数据库，页面不会回显完整密钥。系统每次只启用一个模型，避免协作过程来源不清。</p>
+    <div class="setting-state"><span class="status-dot {% if not active %}muted{% endif %}"></span><div><strong>当前：{{ active.provider ~ ' 已启用' if active else '演示协同模式' }}</strong><p>{% if active %}每条 Agent 记录都会由当前启用的 {{ active.provider }} 产生；调用失败会显示错误，不会伪造结果。{% else %}尚未配置模型，因此只展示明确标识的规则引擎流程。{% endif %}</p></div></div>
+    <form method="post" action="{{ url_for('web.save_provider_settings') }}">
+      <label for="provider">模型提供商</label><select class="form-select" id="provider" name="provider" onchange="window.location='{{ url_for('web.settings') }}?provider='+encodeURIComponent(this.value)">{% for name in providers %}<option value="{{ name }}" {% if name == selected_provider %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+      <label for="api_key">{{ selected_provider }} API Key</label><input class="form-control" id="api_key" name="api_key" type="password" autocomplete="new-password" placeholder="{{ '已保存；留空则不修改' if provider and provider.encrypted_key else '请输入 API Key' }}">
+      <label for="base_url">兼容 OpenAI 的接口地址</label><input class="form-control" id="base_url" name="base_url" value="{{ provider.base_url if provider and provider.base_url else providers[selected_provider]['base_url'] }}" placeholder="非 DeepSeek 提供商请填写接口地址">
+      <label for="model_name">模型名称</label><input class="form-control" id="model_name" name="model_name" value="{{ provider.model_name if provider and provider.model_name else providers[selected_provider]['model_name'] }}" placeholder="例如供应商提供的模型 ID">
+      <button class="btn btn-primary mt-3">加密保存并启用</button>
+    </form>
+    {% if provider and provider.encrypted_key %}<div class="settings-actions"><form method="post" action="{{ url_for('web.test_provider_settings') }}"><input type="hidden" name="provider" value="{{ selected_provider }}"><button class="btn btn-outline-primary btn-sm">测试模型连接</button></form><form method="post" action="{{ url_for('web.delete_provider_settings') }}"><input type="hidden" name="provider" value="{{ selected_provider }}"><button class="btn btn-outline-danger btn-sm" data-confirm="确定删除本地保存的 API Key？">删除此 API Key</button></form></div>{% endif %}
+  </div>
+  <div class="surface-card"><p class="eyebrow">文件操作安全</p><h2>任何高风险操作都由你决定</h2><ul class="security-list"><li><strong>读取</strong><span>开发 Agent 仅读取你接入的项目文件夹中的源码</span></li><li><strong>新建</strong><span>新建文件或文件夹前展示完整提案</span></li><li><strong>覆盖 / 删除</strong><span>逐文件等待你确认；删除仍未开放自动执行</span></li><li><strong>执行 / 安装依赖</strong><span>展示命令与影响范围，等待确认</span></li></ul></div>
+</section>
+{% endblock %}

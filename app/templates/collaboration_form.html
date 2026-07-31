@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block page_title %}发起协同任务{% endblock %}
+{% block content %}
+<section class="task-compose-shell">
+  <div class="task-compose-header">
+    <p class="eyebrow">新的协同任务</p>
+    <h2>你想让 AI 团队完成什么？</h2>
+    <p>直接用日常语言交代目标。系统会先让 Agent 讨论和分工，真正修改本地文件前仍会征求你的批准。</p>
+  </div>
+
+  {% if projects %}
+  <form method="post" class="task-compose-card" id="collaboration-form">
+    <div class="compose-section">
+      <label for="project_id">在哪个项目中完成</label>
+      <select id="project_id" class="form-select" name="project_id" required>
+        {% for project in projects %}<option value="{{ project.id }}">{{ project.name }}</option>{% endfor %}
+      </select>
+      <p class="form-help">没有合适的项目？<a href="{{ url_for('web.new_project') }}">先新建项目空间</a>。</p>
+    </div>
+
+    <div class="compose-section">
+      <label for="team_id">由哪个 AI 团队完成</label>
+      <select id="team_id" class="form-select" name="team_id">
+        {% for team in teams %}<option value="{{ team.id }}">{{ team.name }}{% if team.description %} · {{ team.description }}{% endif %}</option>{% endfor %}
+      </select>
+      <p class="form-help">团队会作为本次任务的固定执行团队。<a href="{{ url_for('web.team') }}">管理或新增团队</a>。</p>
+    </div>
+
+    <div class="compose-section">
+      <label for="goal">把任务交代给 AI 团队</label>
+      <textarea id="goal" name="goal" class="form-control mission-input" rows="6" required placeholder="例如：请为社团报名系统增加报名页面、重复报名校验，并生成测试用例。"></textarea>
+      <div class="prompt-examples" aria-label="任务示例">
+        <button type="button" data-prompt-example="为 Flask 项目增加用户登录功能，并补充测试。">增加登录功能</button>
+        <button type="button" data-prompt-example="修复当前项目的报错，说明原因并生成测试用例。">修复项目报错</button>
+        <button type="button" data-prompt-example="根据当前项目任务生成迭代计划、测试报告和任务表。">生成项目资料</button>
+      </div>
+    </div>
+
+    <details class="compose-section workspace-details">
+      <summary>设置工作位置（可选）</summary>
+      <p class="form-help">不填写则继续使用项目原有位置；填写后会更新本项目允许 Agent 提案的范围。</p>
+      <label for="workspace_path">接入项目文件夹</label>
+      <div class="path-picker"><input class="form-control" id="workspace_path" name="workspace_path" placeholder="D:\毕业设计\我的项目"><button class="btn btn-outline-primary" type="button" data-folder-picker data-target="workspace_path">选择文件夹</button></div>
+      <label for="attached_file_path">或只接入单个文件</label>
+      <div class="path-picker"><input class="form-control" id="attached_file_path" name="attached_file_path" placeholder="D:\毕业设计\demo.py"><button class="btn btn-outline-primary" type="button" data-file-picker data-target="attached_file_path">选择文件</button></div>
+    </details>
+
+    <div class="compose-section">
+      <div class="field-row"><div><label>本次 AI 团队</label><p class="form-help">项目经理、测试与回顾 Agent 始终参与；请选择需要参与开发协作的成员。</p></div><div class="team-preset-tabs" role="group" aria-label="团队方案"><button type="button" class="active" data-team-preset="standard">标准开发</button><button type="button" data-team-preset="quick">快速完成</button><button type="button" data-team-preset="deep">深度协同</button></div></div>
+      <input type="hidden" name="team_preset" value="standard" id="team-preset-value">
+      <div class="team-select-grid">
+        {% for project in projects %}
+        <div class="team-project-options" data-project-members="{{ project.id }}" {% if not loop.first %}hidden{% endif %}>
+          {% for member in project.members %}
+          <article class="team-select-card">
+            <label><input type="checkbox" name="member_ids" value="{{ member.id }}" {% if loop.index <= 2 %}checked{% endif %}> <strong>{{ member.name }}</strong><span>开发 Agent</span></label>
+            <p>{{ member.skills }}</p>
+            <select class="form-select form-select-sm" name="specialization_{{ member.id }}" aria-label="{{ member.name }} 的专长方向">
+              <option value="">由项目经理自动分工</option><option value="后端与接口">后端与接口</option><option value="前端页面">前端页面</option><option value="数据库与数据处理">数据库与数据处理</option><option value="测试与质量保障">测试与质量保障</option><option value="文档与项目资料">文档与项目资料</option>
+            </select>
+          </article>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="compose-options compose-section">
+      <div><label for="task_type">任务类型</label><select id="task_type" class="form-select" name="task_type"><option value="development">软件开发</option><option value="document">文档</option><option value="spreadsheet">表格</option><option value="office">其他办公任务</option></select></div>
+      <div><label>协同方式</label><div class="mode-choice"><label><input type="radio" name="mode" value="auto" checked> 自动完成</label><label><input type="radio" name="mode" value="manual"> 逐步确认</label></div><p class="form-help">自动完成只需开始时确认一次：AI 会自动写入本次工作区、运行 Python 测试并持续修复；逐步确认才需要你逐项批准。</p></div>
+    </div>
+    <div class="compose-footer"><input class="form-control task-name-input" name="name" placeholder="任务名称（可选，例如：报名功能迭代）"><button class="btn btn-primary btn-lg">开始让 AI 团队协作</button></div>
+  </form>
+  {% else %}
+  <section class="empty-state large"><h3>先建立一个项目空间</h3><p>项目空间用于保存协作记录，并限定 AI 可以查看和提交文件提案的范围。</p><a class="btn btn-primary" href="{{ url_for('web.new_project') }}">新建项目</a></section>
+  {% endif %}
+</section>
+{% endblock %}

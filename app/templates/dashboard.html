@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block body_class %}workspace-page{% endblock %}
+{% block page_title %}新聊天{% endblock %}
+{% block content %}
+<section class="codex-chat" id="home-chat">
+  <header class="codex-chat-header">
+    <strong id="home-title">新聊天</strong>
+    <button type="button" class="chat-more" aria-label="更多操作">···</button>
+  </header>
+  <div class="codex-message-feed" id="home-chat-history" hidden aria-live="polite"></div>
+  <div class="codex-empty" id="home-empty" aria-hidden="true"></div>
+  <div class="codex-start-actions" id="home-chat-actions" hidden></div>
+  <form class="codex-composer" id="home-chat-form" method="post" action="{{ url_for('web.new_collaboration') }}">
+    <div class="composer-menu" id="composer-menu" hidden>
+      <p>本次任务</p>
+      <div class="composer-mode-options" role="radiogroup" aria-label="任务模式">
+        <label><input type="radio" name="task_type" value="conversation" checked><span>对话</span></label>
+        <label><input type="radio" name="task_type" value="office"><span>办公</span></label>
+        <label><input type="radio" name="task_type" value="development"><span>编程</span></label>
+      </div>
+      <label class="composer-path-label">文件或文件夹位置（办公、编程时需要）<input class="form-control" name="workspace_path" value="E:\项目测试" placeholder="例如：E:\项目测试"></label>
+      <label class="composer-project-label">保存到<select name="project_id">{% for project in projects %}<option value="{{ project.id }}">{{ project.name }}</option>{% endfor %}</select></label>
+      <label class="composer-project-label">由哪个团队完成<select name="team_id">{% for team in teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select></label>
+    </div>
+    <textarea id="home-goal" name="goal" rows="1" required placeholder="向 AI 团队发送消息"></textarea>
+    <input type="hidden" name="mode" value="auto"><input type="hidden" name="name" value="新的协同任务"><input type="hidden" name="ajax" value="1">
+    <div class="composer-toolbar">
+      <button class="composer-plus" id="composer-plus" type="button" aria-expanded="false" aria-controls="composer-menu" title="选择任务类型和文件位置">＋</button>
+      <button class="composer-mode-label" id="composer-mode-label" type="button" aria-expanded="false" aria-controls="composer-menu">对话 ▾</button>
+      <button class="composer-send" id="home-send-button" aria-label="发送消息">↑</button>
+    </div>
+  </form>
+</section>
+<script>
+(() => {
+  const home = document.getElementById('home-chat');
+  const form = document.getElementById('home-chat-form');
+  const input = document.getElementById('home-goal');
+  const history = document.getElementById('home-chat-history');
+  const empty = document.getElementById('home-empty');
+  const actions = document.getElementById('home-chat-actions');
+  const send = document.getElementById('home-send-button');
+  const title = document.getElementById('home-title');
+  const menu = document.getElementById('composer-menu');
+  const plus = document.getElementById('composer-plus');
+  const modeLabel = document.getElementById('composer-mode-label');
+  let messageUrl = null, chatUrl = null, startUrl = null, taskType = 'conversation';
+  const modeNames = {conversation:'对话', office:'办公', development:'编程'};
+  const toggleMenu = () => { menu.hidden = !menu.hidden; plus.setAttribute('aria-expanded', String(!menu.hidden)); modeLabel.setAttribute('aria-expanded', String(!menu.hidden)); };
+  plus.addEventListener('click', toggleMenu);
+  modeLabel.addEventListener('click', toggleMenu);
+  form.querySelectorAll('input[name="task_type"]').forEach((radio) => radio.addEventListener('change', () => { modeLabel.textContent = `${modeNames[radio.value]} ▾`; }));
+  let thinking = null;
+  const scrollToLatest = () => history.scrollTo({top: history.scrollHeight, behavior: 'smooth'});
+  const render = (message) => {
+    const isUser = message.role === 'user';
+    const item = document.createElement('article'); item.className = `codex-message is-entering ${isUser ? 'from-user' : 'from-agent'}`;
+    if (!isUser) { const sender = document.createElement('strong'); sender.textContent = message.sender; item.appendChild(sender); }
+    const body = document.createElement('div'); body.textContent = message.content || message.summary; item.appendChild(body);
+    history.appendChild(item); history.hidden = false; empty.hidden = true; home.classList.add('has-chat'); requestAnimationFrame(() => item.classList.remove('is-entering')); scrollToLatest(); return item;
+  };
+  const showThinking = () => { thinking = document.createElement('div'); thinking.className = 'codex-thinking'; thinking.innerHTML = '<span>项目经理正在思考</span><i></i><i></i><i></i>'; history.appendChild(thinking); history.hidden = false; empty.hidden = true; home.classList.add('has-chat'); scrollToLatest(); };
+  const hideThinking = () => { if (!thinking) return; const node = thinking; node.classList.add('is-leaving'); window.setTimeout(() => node.remove(), 180); thinking = null; };
+  const setWorking = (working) => { send.disabled = working; send.textContent = working ? '…' : '↑'; };
+  const showActions = () => {
+    actions.replaceChildren(); actions.hidden = false;
+    if (taskType === 'conversation') return;
+    const note = document.createElement('span'); note.textContent = '需求已确认，可以让团队开始工作。';
+    const begin = document.createElement('button'); begin.type = 'button'; begin.textContent = '确认开始';
+    const revise = document.createElement('button'); revise.type = 'button'; revise.className = 'secondary'; revise.textContent = '继续修改';
+    revise.addEventListener('click', () => input.focus());
+    begin.addEventListener('click', async () => {
+      begin.disabled = true; begin.textContent = '正在开始…';
+      const data = new FormData(); data.set('mode', 'auto'); data.set('after', 'collaboration');
+      try { await fetch(startUrl, {method:'POST', body:data, credentials:'same-origin'}); window.location.href = chatUrl; }
+      catch (_) { begin.disabled = false; begin.textContent = '确认开始'; window.alert('暂时无法开始，请重试。'); }
+    });
+    actions.append(note, revise, begin);
+  };
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault(); const text = input.value.trim(); if (!text) return;
+    const pendingUser = render({role:'user', sender:'你', content:text}); showThinking(); setWorking(true); input.value = ''; const data = new FormData(form); let endpoint = form.action;
+    if (messageUrl) { endpoint = messageUrl; data.delete('goal'); data.set('message', text); }
+    try {
+      const response = await fetch(endpoint, {method:'POST', body:data, credentials:'same-origin'}); const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'AI 暂时没有回复。');
+      hideThinking(); payload.messages.filter((message) => message.role !== 'user').forEach(render);
+      if (!messageUrl) {
+        chatUrl = payload.chat_url; startUrl = payload.start_url; taskType = payload.task_type; messageUrl = payload.message_url;
+        title.textContent = text.length > 28 ? `${text.slice(0, 28)}…` : text;
+        form.querySelectorAll('input[name="task_type"]').forEach((radio) => radio.disabled = true);
+        menu.hidden = true; showActions();
+      }
+      input.placeholder = '继续输入消息'; input.focus();
+    } catch (error) { hideThinking(); pendingUser.remove(); window.alert(error.message || '暂时无法回复，请稍后重试。'); }
+    finally { setWorking(false); }
+  });
+})();
+</script>
+{% endblock %}

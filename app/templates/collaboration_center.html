@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block body_class %}workspace-page collaboration-workspace{% endblock %}
+{% block page_title %}协同对话{% endblock %}
+{% block content %}
+<section class="chat-page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('web.project_detail', project_id=project.id) }}">返回项目</a>
+    <p class="eyebrow">{{ project.name }} · {{ sprint.name }}</p>
+    <h2>{{ sprint.goal }}</h2>
+  </div>
+  <span class="state-badge {{ sprint.status }}">{{ {'draft':'等待开始','planning':'正在规划','developing':'正在处理','testing':'正在测试','rework':'正在修复','reviewing':'正在总结','done':'已完成','blocked':'需要处理'}.get(sprint.status, sprint.status) }}</span>
+</section>
+
+<nav class="workspace-command-bar" aria-label="当前任务工具">
+  <button type="button" class="workspace-command active" data-workspace-panel="chat">对话</button>
+  <button type="button" class="workspace-command" data-workspace-panel="files">文件{% if pending_operations %}<b>{{ pending_operations }}</b>{% endif %}</button>
+  <button type="button" class="workspace-command" data-workspace-panel="tests">测试{% if test_runs %}<b>{{ '✓' if test_runs[0].status == 'passed' else '!' }}</b>{% endif %}</button>
+  <button type="button" class="workspace-command" data-workspace-panel="tasks">任务 <b>{{ sprint.tasks|length }}</b></button>
+  <button type="button" class="workspace-command" data-workspace-panel="reports">报告</button>
+</nav>
+
+{% if sprint.status == 'draft' %}
+<section class="chat-start-card">
+  <div>{% if sprint.task_type == 'conversation' %}<h3>这是项目经理 Agent 的对话</h3><p>继续直接聊天即可；这里不会启动文件修改或团队协作。</p>{% else %}<h3>项目经理已经理解你的需求</h3><p>自动模式只需确认一次：AI 会自动写入、运行 Python 测试并持续修复；你随时可以停止或在对话中介入。</p>{% endif %}</div>
+  {% if sprint.task_type != 'conversation' %}
+  <div class="start-actions">
+    <form method="post" action="{{ url_for('web.start_sprint', sprint_id=sprint.id) }}" data-model-run><input type="hidden" name="mode" value="auto"><input type="hidden" name="after" value="collaboration"><button class="btn btn-primary">确认并自动完成</button></form>
+    <a class="btn btn-outline-primary" href="#message">修改需求</a>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="chat-shell">
+  <div class="chat-main">
+    <div class="chat-intro"><div><h3>和 AI 团队沟通</h3><p>直接告诉它要修改什么、优先做什么，或提出问题。</p></div><span>{{ messages|length }} 条记录</span></div>
+    <div class="chat-thread" aria-live="polite">
+      {% for message in messages %}
+      <article class="chat-message {% if message.sender_role == 'user' %}from-user{% else %}from-agent {{ message.sender_role }}{% endif %}">
+        <div class="chat-avatar">{{ '你' if message.sender_role == 'user' else {'manager':'管','developer':'开','tester':'测','reviewer':'回'}.get(message.sender_role, 'AI') }}</div>
+        <div class="chat-bubble"><header><strong>{{ message.sender }}</strong><time>{{ message.created_at.strftime('%H:%M') }}</time></header><p>{{ message.summary }}</p>{% if message.sender_role == 'user' %}<small>{{ message.content }}</small>{% else %}<details><summary>查看详情</summary><div>{{ message.content }}</div>{% if message.decision %}<em>下一步：{{ message.decision }}</em>{% endif %}</details>{% endif %}</div>
+      </article>
+      {% else %}
+      <div class="chat-empty">开始协同后，AI 团队的处理结果会显示在这里。</div>
+      {% endfor %}
+    </div>
+    {% if sprint.status != 'done' or sprint.task_type == 'conversation' %}
+    {% if latest_reply %}<section class="chat-latest"><span>AI 最新回复</span><strong>{{ latest_reply.summary }}</strong><p>{{ latest_reply.content }}</p>{% if latest_reply.decision %}<small>下一步：{{ latest_reply.decision }}</small>{% endif %}</section>{% endif %}
+    {% if pending_operations %}<section class="chat-approval-callout"><div><strong>有 {{ pending_operations }} 个文件等待你的审批</strong><small>文件还没有写入电脑；你可在右侧“文件”中查看并批准。</small></div><button class="btn btn-primary" type="button" data-workspace-panel="files">处理文件</button></section>{% endif %}
+    <form class="chat-composer" method="post" action="{{ url_for('web.collaboration_message', project_id=project.id, sprint_id=sprint.id) }}" data-model-run>
+      <label for="message">补充要求或继续提问</label>
+      <div><textarea id="message" name="message" rows="3" maxlength="1800" placeholder="继续和项目经理 Agent 对话，例如：先只修改后端；页面提示换成更简单的话。" required></textarea><button class="btn btn-primary">发送</button></div>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% include '_chat_approval_drawer.html' %}
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}登录 · AgileSprint Agents{% endblock %}
+{% block unauthenticated %}
+<main class="auth-scene">
+  <div class="auth-stars" aria-hidden="true">{% for n in range(1, 601) %}<span style="--x:{{ (n * 37) % 96 + 2 }}%;--y:{{ (n * 53) % 92 + 3 }}%;--size:{{ 1 + (n % 6) }}px;--delay:{{ (n % 13) * -1 }}s;--duration:{{ 3 + (n % 7) }}s"></span>{% endfor %}</div>
+  <section class="auth-shell">
+    <div class="auth-form-side">
+      <div class="auth-brand"><span>AS</span><div><strong>AgileSprint</strong><small>多智能体协作助手</small></div></div>
+      <div class="auth-heading"><p>欢迎回来</p><h1>登录工作台</h1><span>使用你的管理员账户继续协作。</span></div>
+      <form method="post" class="auth-form">
+        <label for="username">账户</label>
+        <input id="username" name="username" value="admin" autocomplete="username" required autofocus placeholder="请输入账户">
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="请输入密码">
+        <button class="auth-submit" type="submit">进入系统</button>
+      </form>
+      <p class="auth-note">本地运行 · 你的 API 与文件只保存在本机</p>
+    </div>
+    <aside class="auth-feature-side">
+      <div class="feature-mark">AI</div>
+      <p class="feature-kicker">YOUR AI WORKSPACE</p>
+      <h2>把一件事交给<br>AI 团队完成。</h2>
+      <p>在一个对话里看见项目经理、开发和测试 Agent 自动协作；你随时可以补充要求。</p>
+      <div class="feature-steps"><span>理解需求</span><i></i><span>协作执行</span><i></i><span>交付结果</span></div>
+    </aside>
+  </section>
+</main>
+<script>
+(() => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('.auth-stars span').forEach((star) => {
+    star.addEventListener('animationiteration', () => {
+      star.style.setProperty('--x', `${2 + Math.random() * 96}%`);
+      star.style.setProperty('--y', `${3 + Math.random() * 92}%`);
+      star.style.setProperty('--size', `${1 + Math.floor(Math.random() * 6)}px`);
+      star.style.setProperty('--duration', `${3 + Math.floor(Math.random() * 7)}s`);
+    });
+  });
+})();
+</script>
+{% endblock %}

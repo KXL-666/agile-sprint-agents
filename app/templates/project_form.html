@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block page_title %}新建协同项目{% endblock %}
+{% block content %}
+<div class="form-layout">
+  <section>
+    <p class="eyebrow">第一步</p><h2>把你的开发需求交给团队</h2>
+    <p class="lead">用日常语言描述需求即可。项目经理 Agent 会把它转为可分配、可测试的任务。</p>
+    <form method="post" class="surface-card form-card">
+      <label for="name">项目名称</label><input class="form-control" id="name" name="name" placeholder="例如：社团报名系统" required>
+      <label for="description">项目说明（可选）</label><textarea class="form-control" id="description" name="description" rows="3" placeholder="这是一个什么系统，给谁使用？"></textarea>
+      <label for="goal">本次迭代目标</label><textarea class="form-control" id="goal" name="goal" rows="4" placeholder="例如：为系统增加登录、报名与名单导出功能" required></textarea>
+      <label for="workspace_path">接入整个项目文件夹（可选）</label>
+      <div class="path-picker"><input class="form-control" id="workspace_path" name="workspace_path" placeholder="例如：D:\毕业设计\我的项目"><button class="btn btn-outline-primary" type="button" data-folder-picker data-target="workspace_path">选择文件夹</button></div>
+      <label for="attached_file_path">或只接入一个文件（可选）</label>
+      <div class="path-picker"><input class="form-control" id="attached_file_path" name="attached_file_path" placeholder="例如：D:\毕业设计\demo.py"><button class="btn btn-outline-primary" type="button" data-file-picker data-target="attached_file_path">选择文件</button></div>
+      <p class="form-help">文件夹模式：Agent 仅在该文件夹内工作。单文件模式：Agent 只能读取和修改你选定的那一个文件。两种方式可手动输入路径或使用 Windows 选择器。</p>
+      <button class="btn btn-primary mt-2">创建并进入协同</button>
+    </form>
+  </section>
+  <aside class="guide-card"><span class="guide-index">01</span><h3>你会看到什么？</h3><ul><li>项目经理拆解任务并说明分配原因</li><li>多名开发 Agent 接受或反馈任务</li><li>测试 Agent 退回问题并触发修复</li><li>回顾 Agent 给出迭代总结</li></ul><p>全程会写入协作时间线，答辩时可逐步讲解。</p></aside>
+</div>
+{% endblock %}

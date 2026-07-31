@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AgileSprint Agents{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% if session.get('user_id') %}
+  <div class="app-shell">
+    <aside class="sidebar desktop-sidebar">
+      <a class="desktop-brand" href="{{ url_for('web.dashboard') }}">AgileSprint</a>
+      <nav class="desktop-actions" aria-label="主导航">
+        <a href="{{ url_for('web.dashboard') }}" class="desktop-new-chat {% if request.endpoint == 'web.dashboard' %}active{% endif %}">＋ 新聊天</a>
+        <a href="{{ url_for('web.new_project') }}" class="{% if request.endpoint in ['web.new_project', 'web.project_detail', 'web.project_artifacts'] %}active{% endif %}">项目空间</a>
+        <a href="{{ url_for('web.team') }}" class="{% if request.endpoint in ['web.team', 'web.create_agent_team', 'web.add_agent_team_member'] %}active{% endif %}">AI 团队</a>
+        <a href="{{ url_for('web.settings') }}" class="{% if request.endpoint in ['web.settings', 'web.save_provider_settings', 'web.delete_provider_settings', 'web.test_provider_settings'] %}active{% endif %}">模型与安全</a>
+      </nav>
+      <section class="desktop-sidebar-section"><p>任务</p><div class="desktop-task-list">{% for sprint in sidebar_sprints %}<div class="sidebar-task"><a class="{% if request.view_args and request.view_args.get('sprint_id') == sprint.id %}active{% endif %}" href="{{ url_for('web.collaboration_center', project_id=sprint.project_id, sprint_id=sprint.id) }}" title="{{ sprint.goal }}">{{ sprint.goal }}</a><form method="post" action="{{ url_for('web.delete_sprint', sprint_id=sprint.id) }}"><button type="submit" class="sidebar-task-delete" aria-label="删除任务：{{ sprint.goal }}" title="删除任务">×</button></form></div>{% else %}<span class="sidebar-empty">还没有任务</span>{% endfor %}</div></section>
+      <section class="desktop-sidebar-section"><p>项目</p><div class="desktop-task-list">{% for project in sidebar_projects %}<div class="sidebar-task sidebar-project"><a class="{% if request.view_args and request.view_args.get('project_id') == project.id %}active{% endif %}" href="{{ url_for('web.project_detail', project_id=project.id) }}" title="{{ project.name }}">{{ project.name }}</a><form method="post" action="{{ url_for('web.delete_project', project_id=project.id) }}"><button type="submit" class="sidebar-task-delete sidebar-project-delete" aria-label="删除项目：{{ project.name }}" title="删除项目">×</button></form></div>{% else %}<span class="sidebar-empty">还没有项目</span>{% endfor %}</div></section>
+      <section class="sidebar-work-status" id="model-progress-panel" hidden aria-live="polite">
+        <div class="sidebar-work-heading"><span class="sidebar-loading-ring" aria-hidden="true"></span><strong>AI 正在工作</strong></div>
+        <p id="model-progress-title">正在准备协同任务</p>
+        <small id="model-progress-elapsed">刚刚开始</small>
+        <button class="sidebar-stop-button" id="stop-model-work" type="button" hidden>停止本次工作</button>
+      </section>
+      <div class="sidebar-footer"><span class="status-dot"></span> 本地运行<a href="{{ url_for('web.logout') }}">退出登录</a></div>
+    </aside>
+    <main class="main-content">
+      <header class="topbar"><div><p class="eyebrow">多智能体敏捷开发任务管理系统</p><h1>{% block page_title %}工作台{% endblock %}</h1></div><div class="topbar-actions"><button class="topbar-link" type="button" data-go-back>返回</button><div class="user-chip"><span class="avatar">管</span><span>{{ session.get('display_name') }}</span><a href="{{ url_for('web.logout') }}">退出登录</a></div></div></header>
+      {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">{{ message }}<button class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button></div>{% endfor %}</div>{% endif %}{% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% else %}{% block unauthenticated %}{% endblock %}{% endif %}
+  {% if session.get('user_id') %}
+  {% endif %}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
