@@ -21,3 +21,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Local tools / wrappers
+git_ssh_wrapper.bat
